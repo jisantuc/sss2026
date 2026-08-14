@@ -1,0 +1,28 @@
+#! /usr/bin/env bash
+
+set -e
+
+function usage() {
+    echo -n \
+"Usage: $(basename "$0")
+
+Format source, test, and project definition files
+"
+}
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    if [ "${1:-}" = "--help" ]; then
+        usage
+    else
+        echo "Formatting cabal file"
+        cabal-gild -i dataframe-plot.cabal \
+                   -o dataframe-plot.cabal
+
+        echo "Formatting nix files"
+        nixfmt flake.nix
+
+        echo "Formatting source and test files"
+        find ./src -name "*.hs" | xargs ormolu -i
+        find ./test -name "*.hs" | xargs ormolu -i
+    fi
+fi

@@ -11,6 +11,7 @@ import Control.Monad.Bayes.Class
     poisson,
   )
 import Control.Monad.Bayes.Sampler.Strict (SamplerT, sampler)
+import Data.Foldable (traverse_)
 import Data.List (inits, intersperse, sort)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -18,22 +19,34 @@ import Data.Vector (fromList)
 import Graphics.Hgg.Backend.SVG (saveSVG)
 import Graphics.Hgg.Spec
   ( ColRef (..),
+    Color,
+    Layer,
+    LineType (..),
+    Point2 (Point2),
     VisualSpec,
     alpha,
-    axisMax,
-    axisMin,
     color,
     layer,
+    legendTitle,
     line,
+    linePoints,
+    linetype,
     purePlot,
     rgb,
     title,
-    xAxis,
     xLabel,
-    yAxis,
     yLabel,
   )
 import System.Random.Stateful (IOGenM, StdGen)
+
+defaultColor :: Color
+defaultColor = rgb 61 65 79
+
+lightBlue :: Color
+lightBlue = rgb 0 60 192
+
+newGreen :: Color
+newGreen = rgb 0 128 60
 
 timeToRetrieveEvidenceFromSatellite ::
   (MonadDistribution m) =>
@@ -88,7 +101,7 @@ timeToAnswerGround ::
   (Double, Double) ->
   -- | How likely is it that each attempt to retrieve evidence from space succeeds?
   Double ->
-  -- | What's the chance that it's not a software bug at all?
+  -- | What's the chance that it's a software bug at all?
   Double ->
   -- | How many minutes until you just give up?
   Double ->
@@ -151,56 +164,115 @@ cdf percentileStep nums =
       indices = (-1 +) . floor . (* totalSize) <$> percentiles
    in zip percentiles $ last . (heads !!) <$> indices
 
-plotCdf :: Text -> [Double] -> VisualSpec
-plotCdf lab nums =
+cdfLayer :: Color -> [Double] -> Layer
+cdfLayer c nums =
   let dist = cdf 0.01 nums
       percentiles = fst <$> dist
       values = snd <$> dist
-   in purePlot
-        <> ( layer $
-               ( line (ColNum . fromList $ values) (ColNum . fromList $ percentiles)
-                   <> (color $ rgb 61 65 79)
-                   <> alpha 0.2
-               )
-           )
-        <> yLabel "Proportion shorter than duration"
-        <> xLabel "Debug duration"
-        <> yAxis (axisMin 0)
-        <> xAxis (axisMin 0 <> axisMax 1)
-        <> title (Text.unwords ["CDF for ", lab])
+   in line (ColNum . fromList $ values) (ColNum . fromList $ percentiles)
+        <> alpha 0.2
+        <> color c
+
+plotCdf :: Text -> [Layer] -> VisualSpec
+plotCdf lab layers =
+  purePlot
+    <> (foldMap layer layers)
+    <> yLabel "Proportion shorter than duration"
+    <> xLabel "Debug duration"
+    <> title (Text.unwords ["CDF for ", lab])
+    <> legendTitle "foo"
+
+refDist :: Int -> IO [Double]
+refDist nSamples = sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 1 (0, 0) 1 1 2400
 
 saveDefaultCdf :: Int -> IO ()
 saveDefaultCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 1 (0, 0) 1 1 2400
-  let spec = plotCdf "Default Params" dist
+  dist <- refDist nSamples
+  let spec = plotCdf "Default Params" [cdfLayer defaultColor dist]
   saveSVG "plots/debug-time-cdf-ground-default.svg" spec
 
 saveBetterIdeasCdf :: Int -> IO ()
 saveBetterIdeasCdf nSamples = do
+  ref <- refDist nSamples
   dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.4 1 (0, 0) 1 1 2400
-  let spec = plotCdf "Better Ideas" dist
+  let spec = plotCdf "Better Ideas" [cdfLayer defaultColor ref, cdfLayer newGreen dist]
   saveSVG "plots/debug-time-cdf-ground-better-ideas.svg" spec
 
 saveFastIdeasCdf :: Int -> IO ()
 saveFastIdeasCdf nSamples = do
+  ref <- refDist nSamples
   dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 1 (15, 6) (15, 6) 0.2 1 (0, 0) 1 1 2400
-  let spec = plotCdf "Fast Ideas" dist
+  let spec = plotCdf "Fast Ideas" [cdfLayer defaultColor ref, cdfLayer newGreen dist]
   saveSVG "plots/debug-time-cdf-ground-fast-ideas.svg" spec
 
 saveSomeSpaceEvidenceCdf :: Int -> IO ()
 saveSomeSpaceEvidenceCdf nSamples = do
+  ref <- refDist nSamples
   dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 1 1 2400
-  let spec = plotCdf "Some Space Evidence" dist
+  let spec = plotCdf "Some Space Evidence" [cdfLayer defaultColor ref, cdfLayer newGreen dist]
   saveSVG "plots/debug-time-cdf-mixed-space-evidence.svg" spec
 
 saveSomeSpaceEvidenceSomePassFailuresCdf :: Int -> IO ()
 saveSomeSpaceEvidenceSomePassFailuresCdf nSamples = do
+  ref <- refDist nSamples
   dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9 1 2400
-  let spec = plotCdf "Some Space Evidence with Some Pass Failures" dist
+  let spec =
+        plotCdf
+          "Some Space Evidence with Some Pass Failures"
+          [ cdfLayer defaultColor ref,
+            cdfLayer newGreen dist
+          ]
   saveSVG "plots/debug-time-cdf-mixed-space-evidence-pass-failures.svg" spec
 
 saveMaybeNotSoftwareBugCdf :: Int -> IO ()
 saveMaybeNotSoftwareBugCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9 1 2400
-  let spec = plotCdf "Some Chance of Not a Software Bug" dist
+  ref <- refDist nSamples
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9 0.9 2400
+  let spec = plotCdf "Some Chance of Not a Software Bug" [cdfLayer defaultColor ref, cdfLayer newGreen dist]
   saveSVG "plots/debug-time-maybe-not-software-bug.svg" spec
+
+saveMaybeNotSoftwareBugTwoRefs :: Int -> IO ()
+saveMaybeNotSoftwareBugTwoRefs nSamples = do
+  midRef <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9 1 2400
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9 0.9 2400
+  let spec =
+        plotCdf
+          "Some Chance of Not a Software Bug"
+          [ cdfLayer lightBlue midRef <> linetype LtDashed,
+            cdfLayer newGreen dist,
+            linePoints [Point2 0 0, Point2 2400 0, Point2 2400 1] <> color lightBlue <> linetype LtDashed,
+            linePoints [Point2 480 0.675, Point2 480 0.9] <> linetype LtDashed <> color defaultColor,
+            linePoints [Point2 720 0.75, Point2 720 0.975] <> linetype LtDashed <> color defaultColor,
+            linePoints [Point2 960 0.775, Point2 960 1] <> linetype LtDashed <> color defaultColor
+          ]
+  saveSVG "plots/debug-time-maybe-not-software-bug-two-references.svg" spec
+
+saveMaybeNotSoftwareFewerSoftwareBugsTwoRefs :: Int -> IO ()
+saveMaybeNotSoftwareFewerSoftwareBugsTwoRefs nSamples = do
+  midRef <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9 1 2400
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9 0.7 2400
+  let spec =
+        plotCdf
+          "Some Chance of Not a Software Bug"
+          [ cdfLayer lightBlue midRef <> linetype LtDashed,
+            cdfLayer newGreen dist,
+            linePoints [Point2 0 0, Point2 2400 0, Point2 2400 1] <> color lightBlue <> linetype LtDashed,
+            linePoints [Point2 480 0.5, Point2 480 0.9] <> linetype LtDashed <> color defaultColor,
+            linePoints [Point2 720 0.6, Point2 720 0.975] <> linetype LtDashed <> color defaultColor,
+            linePoints [Point2 960 0.625, Point2 960 1] <> linetype LtDashed <> color defaultColor
+          ]
+  saveSVG "plots/debug-time-maybe-not-software-bug-fewer-ground-defects.svg" spec
+
+allPlots :: Int -> IO ()
+allPlots nSamples =
+  traverse_
+    ($ nSamples)
+    [ saveDefaultCdf,
+      saveBetterIdeasCdf,
+      saveFastIdeasCdf,
+      saveSomeSpaceEvidenceCdf,
+      saveSomeSpaceEvidenceSomePassFailuresCdf,
+      saveMaybeNotSoftwareBugCdf,
+      saveMaybeNotSoftwareBugTwoRefs,
+      saveMaybeNotSoftwareFewerSoftwareBugsTwoRefs
+    ]

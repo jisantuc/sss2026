@@ -19,16 +19,34 @@ import Graphics.Hgg.Spec
   ( ColRef (..),
     VisualSpec,
     alpha,
+    axisMax,
+    axisMin,
     color,
     layer,
     line,
     purePlot,
     rgb,
     title,
+    xAxis,
     xLabel,
-    yLabel, yAxis, axisMin, xAxis, axisMax,
+    yAxis,
+    yLabel,
   )
 import System.Random.Stateful (IOGenM, StdGen)
+
+timeToGatherEvidence ::
+  (MonadDistribution m) =>
+  -- | Probability that the evidence is already on the ground
+  Double ->
+  -- | Time til next pass normal distribution params in minutes
+  (Double, Double) ->
+  m Double
+timeToGatherEvidence groundChance timeTilContact = do
+  onTheGround <- bernoulli groundChance
+  if onTheGround
+    then pure 0
+    else
+      uncurry normal timeTilContact
 
 timeToAnswerGround ::
   (MonadDistribution m) =>
@@ -45,18 +63,34 @@ timeToAnswerGround ::
   (Double, Double) ->
   -- | How likely it is that each hypothesis is correct.
   Double ->
+  -- | What's the chance that the evidence you need is on the ground already?
+  Double ->
+  -- | What's the distribution of times until next contact?
+  (Double, Double) ->
   m Double
-timeToAnswerGround lastIdeaAt startAfter ideaTime evidenceTime evaluationTime correctRate =
+timeToAnswerGround lastIdeaAt startAfter ideaTime evidenceTime evaluationTime correctRate groundChance timeTilContact =
   do
     ideaDelay <- poisson ideaTime
     let ideaArrival = lastIdeaAt + ideaDelay
     let startAt = max startAfter (fromIntegral ideaArrival)
     evidenceEnumeration <- max 0 <$> uncurry normal evidenceTime
-    let evidenceReadyAt = startAt + evidenceEnumeration
+    evidenceGathering <- timeToGatherEvidence groundChance timeTilContact
+    let evidenceReadyAt = startAt + evidenceEnumeration + evidenceGathering
     evaluation <- max 0 <$> uncurry normal evaluationTime
     let resultAt = evidenceReadyAt + evaluation
     correct <- bernoulli correctRate
-    if correct then pure resultAt else timeToAnswerGround ideaArrival resultAt ideaTime evidenceTime evaluationTime correctRate
+    if correct
+      then pure resultAt
+      else
+        timeToAnswerGround
+          ideaArrival
+          resultAt
+          ideaTime
+          evidenceTime
+          evaluationTime
+          correctRate
+          groundChance
+          timeTilContact
 
 logDebuggingTimes :: (Show a) => Int -> FilePath -> SamplerT (IOGenM StdGen) IO a -> IO ()
 logDebuggingTimes nSamples dest generator =
@@ -82,7 +116,7 @@ plotCdf lab nums =
       values = snd <$> dist
    in purePlot
         <> ( layer $
-               ( line (ColNum . fromList $ values) (ColNum . fromList $ percentiles) 
+               ( line (ColNum . fromList $ values) (ColNum . fromList $ percentiles)
                    <> (color $ rgb 61 65 79)
                    <> alpha 0.2
                )
@@ -95,18 +129,24 @@ plotCdf lab nums =
 
 saveDefaultCdf :: Int -> IO ()
 saveDefaultCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 1 (0, 0)
   let spec = plotCdf "Default Params" dist
   saveSVG "plots/debug-time-cdf-ground-default.svg" spec
 
 saveBetterIdeasCdf :: Int -> IO ()
 saveBetterIdeasCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.4
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.4 1 (0, 0)
   let spec = plotCdf "Better Ideas" dist
   saveSVG "plots/debug-time-cdf-ground-better-ideas.svg" spec
 
 saveFastIdeasCdf :: Int -> IO ()
 saveFastIdeasCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 1 (15, 6) (15, 6) 0.2
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 1 (15, 6) (15, 6) 0.2 1 (0, 0)
   let spec = plotCdf "Fast Ideas" dist
   saveSVG "plots/debug-time-cdf-ground-fast-ideas.svg" spec
+
+saveSomeSpaceEvidenceCdf :: Int -> IO ()
+saveSomeSpaceEvidenceCdf nSamples = do
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15)
+  let spec = plotCdf "Some Space Evidence" dist
+  saveSVG "plots/debug-time-cdf-mixed-space-evidence.svg" spec

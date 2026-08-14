@@ -1,19 +1,23 @@
-cabal-version:   3.0
-name:            example
-version:         0.1.0.0
-license:         NONE
-author:          Joe
-maintainer:      joe@example.com
-build-type:      Simple
+cabal-version: 3.0
+name: example
+version: 0.1.0.0
+license: MIT
+author: James Santucci
+maintainer: james.santucci@umbra.com
+build-type: Simple
 
 common warnings
-    ghc-options: -Wall
+  ghc-options: -Wall
 
 library sss2026
-    import:           warnings
-    build-depends:    base
-    hs-source-dirs:   src
-    default-language: Haskell2010
-    -- cabal-gild: discover src
-    exposed-modules:
-      Lib
+  import: warnings
+  build-depends:
+    base,
+    monad-bayes,
+    random,
+
+  hs-source-dirs: src
+  default-language: Haskell2010
+  -- cabal-gild: discover src
+  exposed-modules:
+    DebuggingTime

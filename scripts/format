@@ -15,14 +15,13 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
         usage
     else
         echo "Formatting cabal file"
-        cabal-gild -i dataframe-plot.cabal \
-                   -o dataframe-plot.cabal
+        cabal-gild -i sss2026.cabal \
+                   -o sss2026.cabal
 
         echo "Formatting nix files"
         nixfmt flake.nix
 
-        echo "Formatting source and test files"
+        echo "Formatting source files"
         find ./src -name "*.hs" | xargs ormolu -i
-        find ./test -name "*.hs" | xargs ormolu -i
     fi
 fi

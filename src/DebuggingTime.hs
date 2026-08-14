@@ -34,19 +34,37 @@ import Graphics.Hgg.Spec
   )
 import System.Random.Stateful (IOGenM, StdGen)
 
+timeToRetrieveEvidenceFromSatellite ::
+  (MonadDistribution m) =>
+  -- | Time til next pass normal distribution params in minutes
+  (Double, Double) ->
+  -- | Chance of success during each pass retrieving evidence from satellite
+  Double ->
+  m Double
+timeToRetrieveEvidenceFromSatellite timeTilContact retrievalSuccessRate =
+  do
+    nextContactDelay <- uncurry normal timeTilContact
+    successfulRetrieval <- bernoulli retrievalSuccessRate
+    if successfulRetrieval
+      then pure nextContactDelay
+      else
+        (nextContactDelay +) <$> timeToRetrieveEvidenceFromSatellite timeTilContact retrievalSuccessRate
+
 timeToGatherEvidence ::
   (MonadDistribution m) =>
   -- | Probability that the evidence is already on the ground
   Double ->
   -- | Time til next pass normal distribution params in minutes
   (Double, Double) ->
+  -- | Chance of success during each pass retrieving evidence from satellite
+  Double ->
   m Double
-timeToGatherEvidence groundChance timeTilContact = do
+timeToGatherEvidence groundChance timeTilContact retrievalSuccessRate = do
   onTheGround <- bernoulli groundChance
   if onTheGround
     then pure 0
     else
-      uncurry normal timeTilContact
+      timeToRetrieveEvidenceFromSatellite timeTilContact retrievalSuccessRate
 
 timeToAnswerGround ::
   (MonadDistribution m) =>
@@ -67,30 +85,42 @@ timeToAnswerGround ::
   Double ->
   -- | What's the distribution of times until next contact?
   (Double, Double) ->
+  -- | How likely is it that each attempt to retrieve evidence from space succeeds?
+  Double ->
   m Double
-timeToAnswerGround lastIdeaAt startAfter ideaTime evidenceTime evaluationTime correctRate groundChance timeTilContact =
-  do
-    ideaDelay <- poisson ideaTime
-    let ideaArrival = lastIdeaAt + ideaDelay
-    let startAt = max startAfter (fromIntegral ideaArrival)
-    evidenceEnumeration <- max 0 <$> uncurry normal evidenceTime
-    evidenceGathering <- timeToGatherEvidence groundChance timeTilContact
-    let evidenceReadyAt = startAt + evidenceEnumeration + evidenceGathering
-    evaluation <- max 0 <$> uncurry normal evaluationTime
-    let resultAt = evidenceReadyAt + evaluation
-    correct <- bernoulli correctRate
-    if correct
-      then pure resultAt
-      else
-        timeToAnswerGround
-          ideaArrival
-          resultAt
-          ideaTime
-          evidenceTime
-          evaluationTime
-          correctRate
-          groundChance
-          timeTilContact
+timeToAnswerGround
+  lastIdeaAt
+  startAfter
+  ideaTime
+  evidenceTime
+  evaluationTime
+  correctRate
+  groundChance
+  timeTilContact
+  retrievalSuccessRate =
+    do
+      ideaDelay <- poisson ideaTime
+      let ideaArrival = lastIdeaAt + ideaDelay
+      let startAt = max startAfter (fromIntegral ideaArrival)
+      evidenceEnumeration <- max 0 <$> uncurry normal evidenceTime
+      evidenceGathering <- timeToGatherEvidence groundChance timeTilContact retrievalSuccessRate
+      let evidenceReadyAt = startAt + evidenceEnumeration + evidenceGathering
+      evaluation <- max 0 <$> uncurry normal evaluationTime
+      let resultAt = evidenceReadyAt + evaluation
+      correct <- bernoulli correctRate
+      if correct
+        then pure resultAt
+        else
+          timeToAnswerGround
+            ideaArrival
+            resultAt
+            ideaTime
+            evidenceTime
+            evaluationTime
+            correctRate
+            groundChance
+            timeTilContact
+            retrievalSuccessRate
 
 logDebuggingTimes :: (Show a) => Int -> FilePath -> SamplerT (IOGenM StdGen) IO a -> IO ()
 logDebuggingTimes nSamples dest generator =
@@ -129,24 +159,30 @@ plotCdf lab nums =
 
 saveDefaultCdf :: Int -> IO ()
 saveDefaultCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 1 (0, 0)
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 1 (0, 0) 1
   let spec = plotCdf "Default Params" dist
   saveSVG "plots/debug-time-cdf-ground-default.svg" spec
 
 saveBetterIdeasCdf :: Int -> IO ()
 saveBetterIdeasCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.4 1 (0, 0)
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.4 1 (0, 0) 1
   let spec = plotCdf "Better Ideas" dist
   saveSVG "plots/debug-time-cdf-ground-better-ideas.svg" spec
 
 saveFastIdeasCdf :: Int -> IO ()
 saveFastIdeasCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 1 (15, 6) (15, 6) 0.2 1 (0, 0)
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 1 (15, 6) (15, 6) 0.2 1 (0, 0) 1
   let spec = plotCdf "Fast Ideas" dist
   saveSVG "plots/debug-time-cdf-ground-fast-ideas.svg" spec
 
 saveSomeSpaceEvidenceCdf :: Int -> IO ()
 saveSomeSpaceEvidenceCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15)
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 1
   let spec = plotCdf "Some Space Evidence" dist
   saveSVG "plots/debug-time-cdf-mixed-space-evidence.svg" spec
+
+saveSomeSpaceEvidenceSomePassFailuresCdf :: Int -> IO ()
+saveSomeSpaceEvidenceSomePassFailuresCdf nSamples = do
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9
+  let spec = plotCdf "Some Space Evidence with Some Pass Failures" dist
+  saveSVG "plots/debug-time-cdf-mixed-space-evidence-pass-failures.svg" spec

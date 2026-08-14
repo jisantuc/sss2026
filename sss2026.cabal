@@ -13,8 +13,12 @@ library sss2026
   import: warnings
   build-depends:
     base,
+    hgg-core,
+    hgg-svg,
     monad-bayes,
     random,
+    text,
+    vector
 
   hs-source-dirs: src
   default-language: Haskell2010

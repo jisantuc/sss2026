@@ -33,6 +33,22 @@
         "type": "github"
       }
     },
+    "hgg": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784394057,
+        "narHash": "sha256-wQF9vy5BnqvlOP/dvTKXbqiC2BG8vnxCItbBcwPQTto=",
+        "owner": "frenzieddoll",
+        "repo": "hgg",
+        "rev": "b2acd567723334641d0c6ffc15df03ced2198990",
+        "type": "github"
+      },
+      "original": {
+        "owner": "frenzieddoll",
+        "repo": "hgg",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1782978903,
@@ -68,6 +84,7 @@
       "inputs": {
         "flake-parts": "flake-parts",
         "haskell-flake": "haskell-flake",
+        "hgg": "hgg",
         "nixpkgs": "nixpkgs"
       }
     }

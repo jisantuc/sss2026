@@ -3,12 +3,16 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskell-flake.url = "github:srid/haskell-flake";
+    hgg.url = "github:frenzieddoll/hgg";
+    hgg.flake = false;
+
   };
   outputs =
     inputs@{
       self,
       nixpkgs,
       flake-parts,
+      hgg,
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -23,7 +27,13 @@
           # The base package set representing a specific GHC version.
           # By default, this is pkgs.haskellPackages.
           # You may also create your own. See https://haskell.nixos.asia/package-set
-          # basePackages = pkgs.haskellPackages;
+          basePackages = pkgs.haskellPackages.extend (
+            self: super: {
+              hgg-core = pkgs.haskell.lib.dontCheck (self.callCabal2nix "hgg-core" "${hgg}/hgg-core" { });
+              hgg-frame = pkgs.haskell.lib.dontCheck (self.callCabal2nix "hgg-frame" "${hgg}/hgg-frame" { });
+              hgg-svg = pkgs.haskell.lib.dontCheck (self.callCabal2nix "hgg-svg" "${hgg}/hgg-svg" { });
+            }
+          );
 
           # Extra package information. See https://haskell.nixos.asia/dependency
           #

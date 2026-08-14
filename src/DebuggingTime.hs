@@ -1,22 +1,37 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module DebuggingTime where
 
 import Control.Monad (replicateM)
 import Control.Monad.Bayes.Class
   ( MonadDistribution,
-    MonadFactor,
     bernoulli,
-    condition,
     normal,
     poisson,
   )
 import Control.Monad.Bayes.Sampler.Strict (SamplerT, sampler)
-import Data.List (intersperse)
+import Data.List (inits, intersperse, sort)
+import Data.Text (Text)
+import qualified Data.Text as Text
+import Data.Vector (fromList)
+import Graphics.Hgg.Backend.SVG (saveSVG)
+import Graphics.Hgg.Spec
+  ( ColRef (..),
+    VisualSpec,
+    alpha,
+    color,
+    layer,
+    line,
+    purePlot,
+    rgb,
+    title,
+    xLabel,
+    yLabel, yAxis, axisMin, xAxis, axisMax,
+  )
 import System.Random.Stateful (IOGenM, StdGen)
 
 timeToAnswerGround ::
-  (MonadDistribution m, MonadFactor m) =>
+  (MonadDistribution m) =>
   -- | Time of last idea. The next idea arrives a random amount of time after this time.
   Int ->
   -- | The earliest you can start work on the next idea. Your debugging brain is single threaded,
@@ -37,7 +52,6 @@ timeToAnswerGround lastIdeaAt startAfter ideaTime evidenceTime evaluationTime co
     let ideaArrival = lastIdeaAt + ideaDelay
     let startAt = max startAfter (fromIntegral ideaArrival)
     evidenceEnumeration <- max 0 <$> uncurry normal evidenceTime
-    condition $ evidenceEnumeration > 0
     let evidenceReadyAt = startAt + evidenceEnumeration
     evaluation <- max 0 <$> uncurry normal evaluationTime
     let resultAt = evidenceReadyAt + evaluation
@@ -50,3 +64,49 @@ logDebuggingTimes nSamples dest generator =
     samples <- sampler $ replicateM nSamples generator
     let dataLines = mconcat . intersperse "\n" $ show <$> samples
     writeFile dest ("debuggingTimes\n" <> dataLines)
+
+cdf :: (Num a, Ord a) => Double -> [a] -> [(Double, a)]
+cdf _ [] = []
+cdf percentileStep nums =
+  let sorted = sort nums
+      heads = inits sorted
+      totalSize = fromIntegral $ length nums
+      percentiles = drop 1 $ [0, percentileStep .. 1]
+      indices = (-1 +) . floor . (* totalSize) <$> percentiles
+   in zip percentiles $ last . (heads !!) <$> indices
+
+plotCdf :: Text -> [Double] -> VisualSpec
+plotCdf lab nums =
+  let dist = cdf 0.01 nums
+      percentiles = fst <$> dist
+      values = snd <$> dist
+   in purePlot
+        <> ( layer $
+               ( line (ColNum . fromList $ values) (ColNum . fromList $ percentiles) 
+                   <> (color $ rgb 61 65 79)
+                   <> alpha 0.2
+               )
+           )
+        <> yLabel "Proportion shorter than duration"
+        <> xLabel "Debug duration"
+        <> yAxis (axisMin 0)
+        <> xAxis (axisMin 0 <> axisMax 1)
+        <> title (Text.unwords ["CDF for ", lab])
+
+saveDefaultCdf :: Int -> IO ()
+saveDefaultCdf nSamples = do
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2
+  let spec = plotCdf "Default Params" dist
+  saveSVG "plots/debug-time-cdf-ground-default.svg" spec
+
+saveBetterIdeasCdf :: Int -> IO ()
+saveBetterIdeasCdf nSamples = do
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.4
+  let spec = plotCdf "Better Ideas" dist
+  saveSVG "plots/debug-time-cdf-ground-better-ideas.svg" spec
+
+saveFastIdeasCdf :: Int -> IO ()
+saveFastIdeasCdf nSamples = do
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 1 (15, 6) (15, 6) 0.2
+  let spec = plotCdf "Fast Ideas" dist
+  saveSVG "plots/debug-time-cdf-ground-fast-ideas.svg" spec

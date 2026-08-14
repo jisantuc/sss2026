@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module DebuggingTime where
@@ -87,6 +88,10 @@ timeToAnswerGround ::
   (Double, Double) ->
   -- | How likely is it that each attempt to retrieve evidence from space succeeds?
   Double ->
+  -- | What's the chance that it's not a software bug at all?
+  Double ->
+  -- | How many minutes until you just give up?
+  Double ->
   m Double
 timeToAnswerGround
   lastIdeaAt
@@ -97,30 +102,37 @@ timeToAnswerGround
   correctRate
   groundChance
   timeTilContact
-  retrievalSuccessRate =
-    do
-      ideaDelay <- poisson ideaTime
-      let ideaArrival = lastIdeaAt + ideaDelay
-      let startAt = max startAfter (fromIntegral ideaArrival)
-      evidenceEnumeration <- max 0 <$> uncurry normal evidenceTime
-      evidenceGathering <- timeToGatherEvidence groundChance timeTilContact retrievalSuccessRate
-      let evidenceReadyAt = startAt + evidenceEnumeration + evidenceGathering
-      evaluation <- max 0 <$> uncurry normal evaluationTime
-      let resultAt = evidenceReadyAt + evaluation
-      correct <- bernoulli correctRate
-      if correct
-        then pure resultAt
-        else
-          timeToAnswerGround
-            ideaArrival
-            resultAt
-            ideaTime
-            evidenceTime
-            evaluationTime
-            correctRate
-            groundChance
-            timeTilContact
-            retrievalSuccessRate
+  retrievalSuccessRate
+  chanceOfSoftwareBug
+  timeout =
+    bernoulli chanceOfSoftwareBug >>= \case
+      True ->
+        do
+          ideaDelay <- poisson ideaTime
+          let ideaArrival = lastIdeaAt + ideaDelay
+          let startAt = max startAfter (fromIntegral ideaArrival)
+          evidenceEnumeration <- max 0 <$> uncurry normal evidenceTime
+          evidenceGathering <- timeToGatherEvidence groundChance timeTilContact retrievalSuccessRate
+          let evidenceReadyAt = startAt + evidenceEnumeration + evidenceGathering
+          evaluation <- max 0 <$> uncurry normal evaluationTime
+          let resultAt = evidenceReadyAt + evaluation
+          correct <- bernoulli correctRate
+          if correct
+            then pure resultAt
+            else
+              timeToAnswerGround
+                ideaArrival
+                resultAt
+                ideaTime
+                evidenceTime
+                evaluationTime
+                correctRate
+                groundChance
+                timeTilContact
+                retrievalSuccessRate
+                1
+                timeout
+      False -> pure timeout
 
 logDebuggingTimes :: (Show a) => Int -> FilePath -> SamplerT (IOGenM StdGen) IO a -> IO ()
 logDebuggingTimes nSamples dest generator =
@@ -159,30 +171,36 @@ plotCdf lab nums =
 
 saveDefaultCdf :: Int -> IO ()
 saveDefaultCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 1 (0, 0) 1
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 1 (0, 0) 1 1 2400
   let spec = plotCdf "Default Params" dist
   saveSVG "plots/debug-time-cdf-ground-default.svg" spec
 
 saveBetterIdeasCdf :: Int -> IO ()
 saveBetterIdeasCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.4 1 (0, 0) 1
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.4 1 (0, 0) 1 1 2400
   let spec = plotCdf "Better Ideas" dist
   saveSVG "plots/debug-time-cdf-ground-better-ideas.svg" spec
 
 saveFastIdeasCdf :: Int -> IO ()
 saveFastIdeasCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 1 (15, 6) (15, 6) 0.2 1 (0, 0) 1
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 1 (15, 6) (15, 6) 0.2 1 (0, 0) 1 1 2400
   let spec = plotCdf "Fast Ideas" dist
   saveSVG "plots/debug-time-cdf-ground-fast-ideas.svg" spec
 
 saveSomeSpaceEvidenceCdf :: Int -> IO ()
 saveSomeSpaceEvidenceCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 1
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 1 1 2400
   let spec = plotCdf "Some Space Evidence" dist
   saveSVG "plots/debug-time-cdf-mixed-space-evidence.svg" spec
 
 saveSomeSpaceEvidenceSomePassFailuresCdf :: Int -> IO ()
 saveSomeSpaceEvidenceSomePassFailuresCdf nSamples = do
-  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9 1 2400
   let spec = plotCdf "Some Space Evidence with Some Pass Failures" dist
   saveSVG "plots/debug-time-cdf-mixed-space-evidence-pass-failures.svg" spec
+
+saveMaybeNotSoftwareBugCdf :: Int -> IO ()
+saveMaybeNotSoftwareBugCdf nSamples = do
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9 1 2400
+  let spec = plotCdf "Some Chance of Not a Software Bug" dist
+  saveSVG "plots/debug-time-maybe-not-software-bug.svg" spec

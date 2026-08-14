@@ -63,7 +63,6 @@
             tools = hp: {
               ormolu = hp.ormolu;
               cabal-gild = hp.cabal-gild;
-              gnuplot = pkgs.gnuplot;
             };
 
             # Check that haskell-language-server works

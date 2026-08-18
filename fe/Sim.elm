@@ -1,4 +1,4 @@
-module Sim exposing (timeToAnswerGround)
+module Sim exposing (timeToAnswerGround, DebugSimInput)
 
 import Random
 import StatRandom exposing (bernoulliBool, normal, poisson)
@@ -23,9 +23,30 @@ type alias DebugSimInput =
     }
 
 
-timeToGatherEvidence : Float -> Float -> Float -> Float -> Random.Generator Float
-timeToGatherEvidence groundChance timeTilContactMean timeTilContactStd retrievalSuccessRate =
-    Random.constant 0.3
+timeToRetrieveEvidenceFromSatellite : NormalDist -> Float -> Random.Generator Float
+timeToRetrieveEvidenceFromSatellite timeTilContact retrievalSuccessRate =
+    Random.pair (normal timeTilContact.mean timeTilContact.std) (bernoulliBool retrievalSuccessRate)
+        |> Random.andThen
+            (\( delay, success ) ->
+                if success then
+                    Random.constant delay
+
+                else
+                    Random.map (\d -> delay + d) (timeToRetrieveEvidenceFromSatellite timeTilContact retrievalSuccessRate)
+            )
+
+
+timeToGatherEvidence : Float -> NormalDist -> Float -> Random.Generator Float
+timeToGatherEvidence groundChance timeTilContact retrievalSuccessRate =
+    bernoulliBool groundChance
+        |> Random.andThen
+            (\onTheGround ->
+                if onTheGround then
+                    Random.constant 0
+
+                else
+                    timeToRetrieveEvidenceFromSatellite timeTilContact retrievalSuccessRate
+            )
 
 
 groundDebugTime : DebugSimInput -> Random.Generator Int
@@ -38,7 +59,7 @@ groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, 
             normal evidenceEnumerationMeanStd.mean evidenceEnumerationMeanStd.std
 
         evidenceGatheringDelayGen =
-            timeToGatherEvidence chanceEvidenceOnTheGround timeTilContactMeanStd.mean timeTilContactMeanStd.std retrievalSuccessRate
+            timeToGatherEvidence chanceEvidenceOnTheGround timeTilContactMeanStd retrievalSuccessRate
 
         evaluationDelayGen =
             normal evidenceEnumerationMeanStd.mean evidenceEnumerationMeanStd.std

@@ -1,25 +1,26 @@
 module Main exposing (main)
 
 import Browser
-import Html exposing (div, text)
-import Sim exposing (DebugSimInput)
+import Dict
+import Model exposing (Msg(..), SimState)
+import Random exposing (generate)
+import Sim exposing (defaultSimInput, timeToAnswerGround)
+import View exposing (view)
 
 
-type SimConfig
-    = SimConfig
-        { nSamples : Int
-        , configs : List DebugSimInput
-        }
+defaultSimState : SimState
+defaultSimState =
+    { nSamples = 1000, configs = [ ( 0, defaultSimInput ) ], simData = Dict.empty }
 
 
-defaultSimConfig : SimConfig
-defaultSimConfig =
-    SimConfig { nSamples = 100, configs = [] }
-
-
-main : Program () (List SimConfig) Msg
+main : Program () SimState Msg
 main =
-    Browser.sandbox { init = [ defaultSimConfig ], update = update, view = view }
+    Browser.element
+        { init = \_ -> ( defaultSimState, generate (GeneratedValues 0) (Random.list defaultSimState.nSamples (timeToAnswerGround defaultSimInput 1 2400)) )
+        , subscriptions = \_ -> Sub.none
+        , update = update
+        , view = view
+        }
 
 
 
@@ -29,15 +30,8 @@ main =
 -- - right side: manage sim inputs (e.g. add new, remove)
 
 
-view : a -> Html.Html msg
-view _ =
-    div [] [ text "great!" ]
-
-
-type alias Msg =
-    ()
-
-
-update : Msg -> List SimConfig -> List SimConfig
-update _ model =
-    model
+update : Msg -> SimState -> ( SimState, Cmd Msg )
+update msg model =
+    case msg of
+        GeneratedValues id values ->
+            ( { model | simData = Dict.insert id values model.simData }, Cmd.none )

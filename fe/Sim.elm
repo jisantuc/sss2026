@@ -1,25 +1,21 @@
-module Sim exposing (timeToAnswerGround, DebugSimInput)
+module Sim exposing (defaultSimInput, timeToAnswerGround)
 
+import Model exposing (DebugSimInput, NormalDist)
 import Random
 import StatRandom exposing (bernoulliBool, normal, poisson)
 
 
-type alias NormalDist =
-    { mean : Float
-    , std : Float
-    }
-
-
-type alias DebugSimInput =
-    { lastIdeaAt : Int
-    , startAfter : Int
-    , ideaTime : Float
-    , evidenceEnumerationMeanStd : NormalDist
-    , evidenceEvaluationMeanStd : NormalDist
-    , ideaCorrectRate : Float
-    , chanceEvidenceOnTheGround : Float
-    , timeTilContactMeanStd : NormalDist
-    , retrievalSuccessRate : Float
+defaultSimInput : DebugSimInput
+defaultSimInput =
+    { lastIdeaAt = 0
+    , startAfter = 0
+    , ideaTime = 30
+    , evidenceEnumerationMeanStd = { mean = 15, std = 6 }
+    , evidenceEvaluationMeanStd = { mean = 15, std = 6 }
+    , ideaCorrectRate = 0.2
+    , chanceEvidenceOnTheGround = 1
+    , timeTilContactMeanStd = { mean = 0, std = 0 }
+    , retrievalSuccessRate = 1
     }
 
 

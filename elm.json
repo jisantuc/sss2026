@@ -11,7 +11,8 @@
             "elm/html": "1.0.1",
             "elm/random": "1.0.0",
             "elm-community/typed-svg": "7.0.0",
-            "jxxcarlson/elm-stat": "6.0.3"
+            "jxxcarlson/elm-stat": "6.0.3",
+            "mdgriffith/elm-ui": "1.1.8"
         },
         "indirect": {
             "avh4/elm-color": "1.0.0",

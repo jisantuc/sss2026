@@ -1,16 +1,23 @@
-module Model exposing (DebugSimInput, Msg(..), NormalDist, SimState)
+module Model exposing (ConfigState(..), DebugSimInput, Msg(..), NormalDist, SimState)
 
 import Dict exposing (Dict)
 
 
 type Msg
     = GeneratedValues Int (List Int)
+    | RemoveConfig Int
+    | EditConfig Int
 
 
 type alias NormalDist =
     { mean : Float
     , std : Float
     }
+
+
+type ConfigState
+    = Editing
+    | Frozen
 
 
 type alias DebugSimInput =
@@ -23,6 +30,7 @@ type alias DebugSimInput =
     , chanceEvidenceOnTheGround : Float
     , timeTilContactMeanStd : NormalDist
     , retrievalSuccessRate : Float
+    , configState : ConfigState
     }
 
 

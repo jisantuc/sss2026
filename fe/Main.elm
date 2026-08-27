@@ -2,7 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Dict
-import Model exposing (Msg(..), SimState)
+import Model exposing (ConfigState(..), Msg(..), SimState)
 import Random exposing (generate)
 import Sim exposing (defaultSimInput, timeToAnswerGround)
 import View exposing (view)
@@ -10,7 +10,7 @@ import View exposing (view)
 
 defaultSimState : SimState
 defaultSimState =
-    { nSamples = 1000, configs = [ ( 0, defaultSimInput ) ], simData = Dict.empty }
+    { nSamples = 1000, configs = [ ( 0, defaultSimInput ) ], simData = Dict.empty}
 
 
 main : Program () SimState Msg
@@ -35,3 +35,37 @@ update msg model =
     case msg of
         GeneratedValues id values ->
             ( { model | simData = Dict.insert id values model.simData }, Cmd.none )
+
+        RemoveConfig configId ->
+            let
+                newConfigs =
+                    model.configs |> List.filter (\( ix, _ ) -> ix /= configId)
+            in
+            ( { model
+                | configs =
+                    if not (List.isEmpty newConfigs) then
+                        newConfigs
+
+                    else
+                        model.configs
+              }
+            , Cmd.none
+            )
+
+        EditConfig configId ->
+            ( { model
+                | configs =
+                    model.configs
+                        |> List.map
+                            (\( ix, conf ) ->
+                                ( ix
+                                , if ix == configId then
+                                    { conf | configState = Editing }
+
+                                  else
+                                    conf
+                                )
+                            )
+              }
+            , Cmd.none
+            )

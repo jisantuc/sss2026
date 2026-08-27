@@ -1,6 +1,6 @@
 module Sim exposing (defaultSimInput, timeToAnswerGround)
 
-import Model exposing (DebugSimInput, NormalDist)
+import Model exposing (ConfigState(..), DebugSimInput, NormalDist)
 import Random
 import StatRandom exposing (bernoulliBool, normal, poisson)
 
@@ -16,6 +16,7 @@ defaultSimInput =
     , chanceEvidenceOnTheGround = 1
     , timeTilContactMeanStd = { mean = 0, std = 0 }
     , retrievalSuccessRate = 1
+    , configState = Frozen
     }
 
 
@@ -46,7 +47,7 @@ timeToGatherEvidence groundChance timeTilContact retrievalSuccessRate =
 
 
 groundDebugTime : DebugSimInput -> Random.Generator Int
-groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, evidenceEvaluationMeanStd, ideaCorrectRate, chanceEvidenceOnTheGround, timeTilContactMeanStd, retrievalSuccessRate } =
+groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, evidenceEvaluationMeanStd, ideaCorrectRate, chanceEvidenceOnTheGround, timeTilContactMeanStd, retrievalSuccessRate, configState } =
     let
         ideaDelayGen =
             poisson ideaTime 1
@@ -101,6 +102,7 @@ groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, 
                         , chanceEvidenceOnTheGround = chanceEvidenceOnTheGround
                         , timeTilContactMeanStd = timeTilContactMeanStd
                         , retrievalSuccessRate = retrievalSuccessRate
+                        , configState = configState
                         }
             )
 

@@ -1,13 +1,13 @@
 module View exposing (view)
 
-import Debug
 import Dict
-import Html exposing (div, text)
+import Element
+import Element.Input as Input
+import Html exposing (div)
 import Html.Attributes exposing (style)
 import List
-import Model exposing (SimState)
+import Model exposing (ConfigState(..), DebugSimInput, Msg(..), SimState)
 import StatChart
-
 
 
 uniquePercentiles : List ( float, float ) -> List ( float, float )
@@ -41,46 +41,81 @@ cdf nums =
                 List.sort nums
 
             length =
-                Debug.log "length of list" (toFloat (List.length sorted))
+                toFloat (List.length sorted)
         in
-        Debug.log "percentiles"
-            (sorted
-                |> List.indexedMap
-                    (\ix v ->
-                        ( toFloat v, toFloat ix / length )
-                    )
-                |> uniquePercentiles
-                |> List.reverse
-            )
+        sorted
+            |> List.indexedMap
+                (\ix v ->
+                    ( toFloat v, toFloat ix / length )
+                )
+            |> uniquePercentiles
+            |> List.reverse
 
 
 cdfGraph : List Int -> ( Float, Float, Float ) -> StatChart.Graph
 cdfGraph d ( r, g, b ) =
-    StatChart.graph StatChart.Line r g b (Debug.log "incoming data" (cdf d))
+    StatChart.graph StatChart.Line r g b (cdf d)
 
 
-view : SimState -> Html.Html msg
-view { nSamples, simData } =
+viewConfig : ( Int, DebugSimInput ) -> Element.Element Msg
+viewConfig ( ix, { configState } as conf ) =
+    case configState of
+        Frozen ->
+            Element.column [ Element.padding 12, Element.spacing 12 ]
+                [ Element.row [ Element.padding 12, Element.spacing 12 ]
+                    [ Element.text ("Config id: " ++ String.fromInt ix)
+                    , Input.button
+                        [ Element.alignRight ]
+                        { onPress = EditConfig ix |> Just
+                        , label = Element.text "📝"
+                        }
+                    , Input.button
+                        -- TODO: style the button
+                        [ Element.alignRight ]
+                        { onPress = RemoveConfig ix |> Just
+                        , label = Element.text "🚮"
+                        }
+                    ]
+                ]
+
+        Editing ->
+            Element.text "soon"
+
+
+viewConfigs : List ( Int, DebugSimInput ) -> Element.Element Msg
+viewConfigs configs =
+    configs
+        |> List.map viewConfig
+        |> Element.column [ Element.alignTop, Element.width (Element.fillPortion 10) ]
+
+
+view : SimState -> Html.Html Msg
+view { nSamples, simData, configs } =
     let
         emptyChart =
             { boundingBox = { xMin = 0, xMax = 2500, yMin = 0, yMax = 1.05 }, confidence = Nothing, data = [] }
     in
-    div []
-        [ div []
-            [ text (String.concat [ "N samples: ", String.fromInt nSamples ])
-            , text
-                (String.concat
-                    [ "Length of sim: ", List.length (Dict.get 0 simData |> Maybe.withDefault []) |> String.fromInt ]
-                )
-            ]
-        , div [ style "width" "70%" ]
-            [ simData
-                |> Dict.map
-                    (\_ ser ->
-                        cdfGraph ser ( 0.2, 0.2, 0.6 )
-                    )
-                |> Dict.values
-                |> List.foldl StatChart.addGraph emptyChart
-                |> StatChart.view { width = 800, height = 600, padding = 36 } Nothing
-            ]
+    Element.row []
+        [ [ div [ style "width" "100%" ]
+                [ simData
+                    |> Dict.map
+                        (\_ ser ->
+                            cdfGraph ser ( 0.2, 0.2, 0.6 )
+                        )
+                    |> Dict.values
+                    |> List.foldl StatChart.addGraph emptyChart
+                    |> StatChart.view { width = 800, height = 600, padding = 36 } Nothing
+                ]
+                |> Element.html
+          , "N Samples: "
+                ++ String.fromInt nSamples
+                |> Element.text
+                |> Element.el [ Element.centerX ]
+          ]
+            |> Element.column
+                [ Element.width (Element.fillPortion 20 |> Element.minimum 800)
+                , Element.height (Element.fill |> Element.minimum 800)
+                ]
+        , viewConfigs configs
         ]
+        |> Element.layout [ Element.width Element.fill ]

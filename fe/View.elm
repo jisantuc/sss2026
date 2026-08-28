@@ -81,7 +81,8 @@ viewConfig ( ix, { configState } as conf ) =
         Editing ->
             Element.text "soon"
 
-
+-- TODO: this is a table! This is for sure a table!
+-- Don't hand roll this!
 viewConfigs : List ( Int, DebugSimInput ) -> Element.Element Msg
 viewConfigs configs =
     configs

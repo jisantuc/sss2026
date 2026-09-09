@@ -25,16 +25,19 @@ import Graphics.Hgg.Spec
     Point2 (Point2),
     VisualSpec,
     alpha,
+    annotText,
+    axisBreaksAt,
     color,
     layer,
-    legendTitle,
     line,
     linePoints,
     linetype,
     purePlot,
     rgb,
     title,
+    xAxis,
     xLabel,
+    yAxis,
     yLabel,
   )
 import System.Random.Stateful (IOGenM, StdGen)
@@ -173,14 +176,19 @@ cdfLayer c nums =
         <> alpha 0.2
         <> color c
 
+oneWeekLine :: Layer
+oneWeekLine = linePoints [Point2 2400 0, Point2 2400 1] <> linetype LtDashed <> color defaultColor
+
 plotCdf :: Text -> [Layer] -> VisualSpec
 plotCdf lab layers =
   purePlot
-    <> (foldMap layer layers)
+    <> (foldMap layer (oneWeekLine : layers))
     <> yLabel "Proportion shorter than duration"
-    <> xLabel "Debug duration"
+    <> xLabel "Debug duration (minutes)"
     <> title (Text.unwords ["CDF for ", lab])
-    <> legendTitle "foo"
+    <> xAxis (axisBreaksAt ((480 *) <$> [0, 1 .. 6]))
+    <> yAxis (axisBreaksAt ([0, 0.2 .. 1] <> [1.05]))
+    <> annotText 2200 0.5 "1 week"
 
 refDist :: Int -> IO [Double]
 refDist nSamples = sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 1 (0, 0) 1 1 2400
@@ -197,6 +205,13 @@ saveBetterIdeasCdf nSamples = do
   dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.4 1 (0, 0) 1 1 2400
   let spec = plotCdf "Better Ideas" [cdfLayer defaultColor ref, cdfLayer newGreen dist]
   saveSVG "plots/debug-time-cdf-ground-better-ideas.svg" spec
+
+saveWorseIdeasCdf :: Int -> IO ()
+saveWorseIdeasCdf nSamples = do
+  ref <- refDist nSamples
+  dist <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.1 1 (0, 0) 1 1 2400
+  let spec = plotCdf "Worse Ideas" [cdfLayer defaultColor ref, cdfLayer newGreen dist]
+  saveSVG "plots/debug-time-cdf-ground-worse-ideas.svg" spec
 
 saveFastIdeasCdf :: Int -> IO ()
 saveFastIdeasCdf nSamples = do
@@ -268,6 +283,7 @@ allPlots nSamples =
   traverse_
     ($ nSamples)
     [ saveDefaultCdf,
+      saveWorseIdeasCdf,
       saveBetterIdeasCdf,
       saveFastIdeasCdf,
       saveSomeSpaceEvidenceCdf,

@@ -60,12 +60,21 @@
 
             # Programs you want to make available in the shell.
             # Default programs can be disabled by setting to 'null'
-            tools = hp: {
-              ormolu = hp.ormolu;
-              cabal-gild = hp.cabal-gild;
-            } // (with pkgs.elmPackages; {
-              inherit elm elm-doc-preview elm-format elm-language-server elm-test;
-            });
+            tools =
+              hp:
+              {
+                ormolu = hp.ormolu;
+                cabal-gild = hp.cabal-gild;
+              }
+              // (with pkgs.elmPackages; {
+                inherit
+                  elm
+                  elm-doc-preview
+                  elm-format
+                  elm-language-server
+                  elm-test
+                  ;
+              });
 
             # Check that haskell-language-server works
             # hlsCheck.enable = true; # Requires sandbox to be disabled

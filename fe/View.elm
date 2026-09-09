@@ -6,7 +6,7 @@ import Element.Input as Input
 import Html exposing (div)
 import Html.Attributes exposing (style)
 import List
-import Model exposing (ConfigState(..), DebugSimInput, Msg(..), SimState)
+import Model exposing (ConfigState(..), DebugSimInput, Msg(..), NormalDist, SimState)
 import StatChart
 
 
@@ -57,37 +57,132 @@ cdfGraph d ( r, g, b ) =
     StatChart.graph StatChart.Line r g b (cdf d)
 
 
-viewConfig : ( Int, DebugSimInput ) -> Element.Element Msg
-viewConfig ( ix, { configState } as conf ) =
-    case configState of
-        Frozen ->
-            Element.column [ Element.padding 12, Element.spacing 12 ]
-                [ Element.row [ Element.padding 12, Element.spacing 12 ]
-                    [ Element.text ("Config id: " ++ String.fromInt ix)
-                    , Input.button
-                        [ Element.alignRight ]
-                        { onPress = EditConfig ix |> Just
-                        , label = Element.text "📝"
-                        }
-                    , Input.button
-                        -- TODO: style the button
-                        [ Element.alignRight ]
-                        { onPress = RemoveConfig ix |> Just
-                        , label = Element.text "🚮"
-                        }
-                    ]
-                ]
+configButtons : Int -> ConfigState -> Element.Element Msg
+configButtons ix configState =
+    Element.row []
+        [ Input.button
+            [ Element.alignRight ]
+            { onPress = ToggleEditingConfig ix |> Just
+            , label =
+                (case configState of
+                    Editing ->
+                        "❌"
 
+                    Frozen ->
+                        "📝"
+                )
+                    |> Element.text
+            }
+        , Input.button
+            [ Element.alignRight ]
+            { onPress = RemoveConfig ix |> Just
+            , label = Element.text "🚮"
+            }
+        ]
+
+
+floatConfigView : String -> Int -> ConfigState -> Float -> (Int -> Float -> Msg) -> Element.Element Msg
+floatConfigView lab ix cs v msg =
+    case cs of
         Editing ->
-            Element.text "soon"
+            Input.text [ Element.fill |> Element.minimum 30 |> Element.width ]
+                { onChange =
+                    \s ->
+                        case String.toFloat s of
+                            Just new ->
+                                msg ix new
 
--- TODO: this is a table! This is for sure a table!
--- Don't hand roll this!
+                            Nothing ->
+                                NoOp
+                , label = String.concat [ lab, "-", "floatval" ] |> Input.labelHidden
+                , placeholder = Nothing
+                , text = String.fromFloat v
+                }
+
+        Frozen ->
+            String.fromFloat v |> Element.text
+
+
+normalDistConfigView : String -> Int -> ConfigState -> NormalDist -> (Int -> Float -> Msg) -> (Int -> Float -> Msg) -> Element.Element Msg
+normalDistConfigView lab ix cs { mean, std } meanChanged stdChanged =
+    Element.row []
+        [ Element.text "μ: "
+        , mean
+            |> (case cs of
+                    Frozen ->
+                        \v -> String.fromFloat v |> Element.text
+
+                    Editing ->
+                        \v ->
+                            Input.text
+                                [ Element.fill |> Element.minimum 30 |> Element.width ]
+                                { onChange =
+                                    \s ->
+                                        case String.toFloat s of
+                                            Just new ->
+                                                meanChanged ix new
+
+                                            Nothing ->
+                                                NoOp
+                                , label = String.concat [ lab, "-", "mean" ] |> Input.labelHidden
+                                , placeholder = Nothing
+                                , text = String.fromFloat v
+                                }
+               )
+        , Element.text ", σ: "
+        , std
+            |> (case cs of
+                    Frozen ->
+                        \v -> String.fromFloat v |> Element.text
+
+                    Editing ->
+                        \v ->
+                            Input.text []
+                                { onChange =
+                                    \s ->
+                                        case String.toFloat s of
+                                            Just new ->
+                                                stdChanged ix new
+
+                                            Nothing ->
+                                                NoOp
+                                , label = String.concat [ lab, "-", "std" ] |> Input.labelHidden
+                                , placeholder = Nothing
+                                , text = String.fromFloat v
+                                }
+               )
+        ]
+
+
 viewConfigs : List ( Int, DebugSimInput ) -> Element.Element Msg
 viewConfigs configs =
-    configs
-        |> List.map viewConfig
-        |> Element.column [ Element.alignTop, Element.width (Element.fillPortion 10) ]
+    Element.table [ Element.padding 12, Element.spacing 12, Element.width (Element.fillPortion 20 |> Element.minimum 500), Element.alignLeft ]
+        { data = configs
+        , columns =
+            [ { header = Element.text ""
+              , width = Element.fill
+              , view = \( configId, config ) -> configButtons configId config.configState
+              }
+            , { header = Element.text "Config id"
+              , width = Element.fill
+              , view = \( configId, _ ) -> String.fromInt configId |> Element.text
+              }
+            , { header = Element.text "Config"
+              , width = Element.fill
+              , view =
+                    \( ix, config ) ->
+                        Element.column [ Element.spacing 6 ]
+                            [ Element.row [] [ Element.text "Idea arrival minutes: ", floatConfigView "idea-arrival" ix config.configState config.ideaTime IdeaTimeChanged ]
+                            , Element.row [] [ Element.text "Idea accuracy: ", floatConfigView "idea-accuracy" ix config.configState config.ideaCorrectRate IdeaAccuracyChanged ]
+                            , Element.row [] [ Element.text "Evidence enumeration: ", normalDistConfigView "enumeration" ix config.configState config.evidenceEnumerationMeanStd EvidenceEnumerationMeanChanged EvidenceEnumerationStdChanged ]
+                            , Element.row [] [ Element.text "Evidence evaluation: ", normalDistConfigView "evaluation" ix config.configState config.evidenceEvaluationMeanStd EvidenceEvaluationMeanChanged EvidenceEvaluationStdChanged ]
+                            , Element.row [] [ Element.text "Evidence on ground %: ", floatConfigView "ground-chance" ix config.configState config.chanceEvidenceOnTheGround GroundChanceChanged ]
+                            , Element.row [] [ Element.text "Time til contact: ", normalDistConfigView "contact" ix config.configState config.timeTilContactMeanStd TimeTilContactMeanChanged TimeTilContactStdChanged ]
+                            , Element.row [] [ Element.text "Contact success rate: ", floatConfigView "contact-success-rate" ix config.configState config.retrievalSuccessRate ContactSuccessRateChanged ]
+                            ]
+              }
+            ]
+        }
 
 
 view : SimState -> Html.Html Msg
@@ -114,9 +209,9 @@ view { nSamples, simData, configs } =
                 |> Element.el [ Element.centerX ]
           ]
             |> Element.column
-                [ Element.width (Element.fillPortion 20 |> Element.minimum 800)
+                [ Element.width (Element.fillPortion 60 |> Element.minimum 800)
                 , Element.height (Element.fill |> Element.minimum 800)
                 ]
         , viewConfigs configs
         ]
-        |> Element.layout [ Element.width Element.fill ]
+        |> Element.layout []

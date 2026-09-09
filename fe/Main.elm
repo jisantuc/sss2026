@@ -10,7 +10,7 @@ import View exposing (view)
 
 defaultSimState : SimState
 defaultSimState =
-    { nSamples = 1000, configs = [ ( 0, defaultSimInput ) ], simData = Dict.empty}
+    { nSamples = 1000, configs = [ ( 0, defaultSimInput ) ], simData = Dict.empty }
 
 
 main : Program () SimState Msg
@@ -52,7 +52,7 @@ update msg model =
             , Cmd.none
             )
 
-        EditConfig configId ->
+        ToggleEditingConfig configId ->
             ( { model
                 | configs =
                     model.configs
@@ -60,7 +60,14 @@ update msg model =
                             (\( ix, conf ) ->
                                 ( ix
                                 , if ix == configId then
-                                    { conf | configState = Editing }
+                                    { conf
+                                        | configState =
+                                            if conf.configState == Editing then
+                                                Frozen
+
+                                            else
+                                                Editing
+                                    }
 
                                   else
                                     conf
@@ -69,3 +76,76 @@ update msg model =
               }
             , Cmd.none
             )
+
+        EvidenceEnumerationMeanChanged ix new ->
+            ( { model
+                | configs =
+                    model.configs
+                        |> List.map
+                            (\( ix_, conf ) ->
+                                ( ix
+                                , if ix == ix_ then
+                                    { conf
+                                        | evidenceEnumerationMeanStd =
+                                            { mean = new
+                                            , std = conf.evidenceEnumerationMeanStd.std
+                                            }
+                                    }
+
+                                  else
+                                    conf
+                                )
+                            )
+              }
+            , Cmd.none
+            )
+
+        EvidenceEnumerationStdChanged ix new ->
+            ( { model
+                | configs =
+                    model.configs
+                        |> List.map
+                            (\( ix_, conf ) ->
+                                ( ix
+                                , if ix == ix_ then
+                                    { conf
+                                        | evidenceEnumerationMeanStd =
+                                            { mean = conf.evidenceEnumerationMeanStd.mean
+                                            , std = Debug.log "New enumeration mean" new
+                                            }
+                                    }
+
+                                  else
+                                    conf
+                                )
+                            )
+              }
+            , Cmd.none
+            )
+
+        EvidenceEvaluationMeanChanged ix new ->
+            ( model, Cmd.none )
+
+        EvidenceEvaluationStdChanged ix new ->
+            ( model, Cmd.none )
+
+        TimeTilContactMeanChanged ix new ->
+            ( model, Cmd.none )
+
+        TimeTilContactStdChanged ix new ->
+            ( model, Cmd.none )
+
+        IdeaTimeChanged ix new ->
+            ( model, Cmd.none )
+
+        IdeaAccuracyChanged ix new ->
+            ( model, Cmd.none )
+
+        GroundChanceChanged ix new ->
+            ( model, Cmd.none )
+
+        ContactSuccessRateChanged ix new ->
+            ( model, Cmd.none )
+
+        NoOp ->
+            ( model, Cmd.none )

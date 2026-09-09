@@ -6,7 +6,18 @@ import Dict exposing (Dict)
 type Msg
     = GeneratedValues Int (List Int)
     | RemoveConfig Int
-    | EditConfig Int
+    | ToggleEditingConfig Int
+    | EvidenceEnumerationMeanChanged Int Float
+    | EvidenceEnumerationStdChanged Int Float
+    | EvidenceEvaluationMeanChanged Int Float
+    | EvidenceEvaluationStdChanged Int Float
+    | TimeTilContactMeanChanged Int Float
+    | TimeTilContactStdChanged Int Float
+    | IdeaTimeChanged Int Float
+    | IdeaAccuracyChanged Int Float
+    | GroundChanceChanged Int Float
+    | ContactSuccessRateChanged Int Float
+    | NoOp
 
 
 type alias NormalDist =

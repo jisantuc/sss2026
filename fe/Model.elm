@@ -6,6 +6,7 @@ import Dict exposing (Dict)
 type Msg
     = GeneratedValues Int (List Int)
     | RemoveConfig Int
+    | CloneConfig Int
     | ToggleEditingConfig Int
     | EvidenceEnumerationMeanChanged Int Float
     | EvidenceEnumerationStdChanged Int Float
@@ -47,6 +48,6 @@ type alias DebugSimInput =
 
 type alias SimState =
     { nSamples : Int
-    , configs : List ( Int, DebugSimInput )
+    , configs : Dict Int DebugSimInput
     , simData : Dict Int (List Int)
     }

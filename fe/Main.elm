@@ -10,7 +10,7 @@ import View exposing (view)
 
 defaultSimState : SimState
 defaultSimState =
-    { nSamples = 1000, configs = [ ( 0, defaultSimInput ) ], simData = Dict.empty }
+    { nSamples = 1000, configs = Dict.singleton 0 defaultSimInput, simData = Dict.empty }
 
 
 main : Program () SimState Msg
@@ -32,6 +32,11 @@ main =
 
 update : Msg -> SimState -> ( SimState, Cmd Msg )
 update msg model =
+    let
+        regenerate ix conf =
+            generate (GeneratedValues ix)
+                (Random.list defaultSimState.nSamples (timeToAnswerGround conf 1 2400))
+    in
     case msg of
         GeneratedValues id values ->
             ( { model | simData = Dict.insert id values model.simData }, Cmd.none )
@@ -39,15 +44,24 @@ update msg model =
         RemoveConfig configId ->
             let
                 newConfigs =
-                    model.configs |> List.filter (\( ix, _ ) -> ix /= configId)
+                    model.configs |> Dict.remove configId
+
+                newSimData =
+                    model.simData |> Dict.remove configId
             in
             ( { model
                 | configs =
-                    if not (List.isEmpty newConfigs) then
+                    if not (Dict.isEmpty newConfigs) then
                         newConfigs
 
                     else
                         model.configs
+                , simData =
+                    if not (Dict.isEmpty newSimData) then
+                        newSimData
+
+                    else
+                        model.simData
               }
             , Cmd.none
             )
@@ -56,10 +70,9 @@ update msg model =
             ( { model
                 | configs =
                     model.configs
-                        |> List.map
-                            (\( ix, conf ) ->
-                                ( ix
-                                , if ix == configId then
+                        |> Dict.update configId
+                            (Maybe.map
+                                (\conf ->
                                     { conf
                                         | configState =
                                             if conf.configState == Editing then
@@ -68,9 +81,6 @@ update msg model =
                                             else
                                                 Editing
                                     }
-
-                                  else
-                                    conf
                                 )
                             )
               }
@@ -81,19 +91,15 @@ update msg model =
             ( { model
                 | configs =
                     model.configs
-                        |> List.map
-                            (\( ix_, conf ) ->
-                                ( ix
-                                , if ix == ix_ then
+                        |> Dict.update ix
+                            (Maybe.map
+                                (\conf ->
                                     { conf
                                         | evidenceEnumerationMeanStd =
                                             { mean = new
                                             , std = conf.evidenceEnumerationMeanStd.std
                                             }
                                     }
-
-                                  else
-                                    conf
                                 )
                             )
               }
@@ -104,19 +110,15 @@ update msg model =
             ( { model
                 | configs =
                     model.configs
-                        |> List.map
-                            (\( ix_, conf ) ->
-                                ( ix
-                                , if ix == ix_ then
+                        |> Dict.update ix
+                            (Maybe.map
+                                (\conf ->
                                     { conf
                                         | evidenceEnumerationMeanStd =
                                             { mean = conf.evidenceEnumerationMeanStd.mean
-                                            , std = Debug.log "New enumeration mean" new
+                                            , std = new
                                             }
                                     }
-
-                                  else
-                                    conf
                                 )
                             )
               }
@@ -136,16 +138,58 @@ update msg model =
             ( model, Cmd.none )
 
         IdeaTimeChanged ix new ->
-            ( model, Cmd.none )
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix (Maybe.map (\conf -> { conf | ideaTime = new }))
+                    }
+
+                cmd =
+                    Dict.get ix newModel.configs |> Maybe.map (regenerate ix) |> Maybe.withDefault Cmd.none
+            in
+            ( newModel, cmd )
 
         IdeaAccuracyChanged ix new ->
-            ( model, Cmd.none )
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix (Maybe.map (\conf -> { conf | ideaCorrectRate = new }))
+                    }
+
+                cmd =
+                    Dict.get ix newModel.configs |> Maybe.map (regenerate ix) |> Maybe.withDefault Cmd.none
+            in
+            ( newModel, cmd )
 
         GroundChanceChanged ix new ->
             ( model, Cmd.none )
 
         ContactSuccessRateChanged ix new ->
             ( model, Cmd.none )
+
+        CloneConfig ix ->
+            let
+                source =
+                    Dict.get ix model.configs
+
+                configIds =
+                    Dict.keys model.configs
+
+                nextId =
+                    List.maximum configIds |> Maybe.map (\x -> x + 1) |> Maybe.withDefault 0
+
+                newConfigs =
+                    Maybe.map (\s -> Dict.insert nextId s model.configs) source
+                        |> Maybe.withDefault model.configs
+
+                cmd =
+                    Dict.get nextId newConfigs |> Maybe.map (regenerate ix) |> Maybe.withDefault Cmd.none
+            in
+            ( { model | configs = newConfigs }, cmd )
 
         NoOp ->
             ( model, Cmd.none )

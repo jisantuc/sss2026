@@ -12,7 +12,7 @@ defaultSimInput =
     , ideaTime = 30
     , evidenceEnumerationMeanStd = { mean = 15, std = 6 }
     , evidenceEvaluationMeanStd = { mean = 15, std = 6 }
-    , ideaCorrectRate = 0.2
+    , ideaCorrectRate = 20
     , chanceEvidenceOnTheGround = 1
     , timeTilContactMeanStd = { mean = 0, std = 0 }
     , retrievalSuccessRate = 1
@@ -46,8 +46,8 @@ timeToGatherEvidence groundChance timeTilContact retrievalSuccessRate =
             )
 
 
-groundDebugTime : DebugSimInput -> Random.Generator Int
-groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, evidenceEvaluationMeanStd, ideaCorrectRate, chanceEvidenceOnTheGround, timeTilContactMeanStd, retrievalSuccessRate, configState } =
+groundDebugTime : DebugSimInput -> Int -> Random.Generator Int
+groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, evidenceEvaluationMeanStd, ideaCorrectRate, chanceEvidenceOnTheGround, timeTilContactMeanStd, retrievalSuccessRate, configState } timeout =
     let
         ideaDelayGen =
             poisson ideaTime 1
@@ -62,7 +62,7 @@ groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, 
             normal evidenceEnumerationMeanStd.mean evidenceEnumerationMeanStd.std
 
         correctGen =
-            bernoulliBool ideaCorrectRate
+            bernoulliBool (ideaCorrectRate / 100.0)
     in
     Random.map5
         (\ideaDelay evidenceEnumerationDelay evidenceGatheringDelay evaluationDelay correct ->
@@ -91,6 +91,9 @@ groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, 
                 if correct then
                     Random.constant lastResult
 
+                else if lastResult >= timeout then
+                    Random.constant timeout
+
                 else
                     groundDebugTime
                         { lastIdeaAt = lastIdea
@@ -104,6 +107,7 @@ groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, 
                         , retrievalSuccessRate = retrievalSuccessRate
                         , configState = configState
                         }
+                        timeout
             )
 
 
@@ -116,5 +120,5 @@ timeToAnswerGround groundDebugTimeParams chanceOfSoftwareBug timeout =
                     Random.constant timeout
 
                 else
-                    groundDebugTime groundDebugTimeParams
+                    groundDebugTime groundDebugTimeParams timeout
             )

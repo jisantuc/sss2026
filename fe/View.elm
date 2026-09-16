@@ -2,6 +2,8 @@ module View exposing (view)
 
 import Dict
 import Element
+import Element.Background as Background
+import Element.Border as Border
 import Element.Input as Input
 import Html exposing (div)
 import Html.Attributes exposing (style)
@@ -78,7 +80,45 @@ configButtons ix configState =
             { onPress = RemoveConfig ix |> Just
             , label = Element.text "🚮"
             }
+        , Input.button
+            [ Element.alignRight ]
+            { onPress = CloneConfig ix |> Just
+            , label = Element.text "➕"
+            }
         ]
+
+
+rateConfigView : String -> Int -> ConfigState -> Float -> (Int -> Float -> Msg) -> Element.Element Msg
+rateConfigView lab ix cs v msg =
+    case cs of
+        Editing ->
+            Element.row [ Element.spaceEvenly ]
+                [ Input.slider
+                    [ Element.fill |> Element.minimum 90 |> Element.width
+                    , Element.behindContent
+                        (Element.el
+                            [ Element.width Element.fill
+                            , Element.height (Element.px 2)
+                            , Element.centerY
+                            , Background.color (Element.rgb 0.2 0.2 0.2)
+                            , Border.rounded 2
+                            ]
+                            Element.none
+                        )
+                    ]
+                    { onChange = \f -> msg ix f
+                    , label = String.concat [ lab, "-", "floatval" ] |> Input.labelHidden
+                    , min = 1
+                    , max = 100
+                    , step = Just 1
+                    , value = v
+                    , thumb = Input.defaultThumb
+                    }
+                , String.fromFloat v |> Element.text
+                ]
+
+        Frozen ->
+            String.fromFloat v |> Element.text
 
 
 floatConfigView : String -> Int -> ConfigState -> Float -> (Int -> Float -> Msg) -> Element.Element Msg
@@ -171,14 +211,14 @@ viewConfigs configs =
               , width = Element.fill
               , view =
                     \( ix, config ) ->
-                        Element.column [ Element.spacing 6 ]
+                        Element.column [ Element.spacing 9 ]
                             [ Element.row [] [ Element.text "Idea arrival minutes: ", floatConfigView "idea-arrival" ix config.configState config.ideaTime IdeaTimeChanged ]
-                            , Element.row [] [ Element.text "Idea accuracy: ", floatConfigView "idea-accuracy" ix config.configState config.ideaCorrectRate IdeaAccuracyChanged ]
+                            , Element.row [] [ Element.text "Idea accuracy: ", rateConfigView "idea-accuracy" ix config.configState config.ideaCorrectRate IdeaAccuracyChanged ]
                             , Element.row [] [ Element.text "Evidence enumeration: ", normalDistConfigView "enumeration" ix config.configState config.evidenceEnumerationMeanStd EvidenceEnumerationMeanChanged EvidenceEnumerationStdChanged ]
                             , Element.row [] [ Element.text "Evidence evaluation: ", normalDistConfigView "evaluation" ix config.configState config.evidenceEvaluationMeanStd EvidenceEvaluationMeanChanged EvidenceEvaluationStdChanged ]
                             , Element.row [] [ Element.text "Evidence on ground %: ", floatConfigView "ground-chance" ix config.configState config.chanceEvidenceOnTheGround GroundChanceChanged ]
                             , Element.row [] [ Element.text "Time til contact: ", normalDistConfigView "contact" ix config.configState config.timeTilContactMeanStd TimeTilContactMeanChanged TimeTilContactStdChanged ]
-                            , Element.row [] [ Element.text "Contact success rate: ", floatConfigView "contact-success-rate" ix config.configState config.retrievalSuccessRate ContactSuccessRateChanged ]
+                            , Element.row [] [ Element.text "Contact success rate: ", rateConfigView "contact-success-rate" ix config.configState config.retrievalSuccessRate ContactSuccessRateChanged ]
                             ]
               }
             ]
@@ -212,6 +252,6 @@ view { nSamples, simData, configs } =
                 [ Element.width (Element.fillPortion 60 |> Element.minimum 800)
                 , Element.height (Element.fill |> Element.minimum 800)
                 ]
-        , viewConfigs configs
+        , viewConfigs (Dict.toList configs)
         ]
         |> Element.layout []

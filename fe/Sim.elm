@@ -2,7 +2,7 @@ module Sim exposing (defaultSimInput, timeToAnswerGround)
 
 import Model exposing (ConfigState(..), DebugSimInput, NormalDist)
 import Random
-import StatRandom exposing (bernoulliBool, normal, poisson)
+import StatRandom exposing (bernoulliBool, normal, exponential)
 
 
 defaultSimInput : DebugSimInput
@@ -50,7 +50,7 @@ groundDebugTime : DebugSimInput -> Int -> Random.Generator Int
 groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, evidenceEvaluationMeanStd, ideaCorrectRate, chanceEvidenceOnTheGround, timeTilContactMeanStd, retrievalSuccessRate, configState } timeout =
     let
         ideaDelayGen =
-            poisson ideaTime 1
+            exponential (1 / ideaTime) |> Random.map ceiling
 
         evidenceEnumerationDelayGen =
             normal evidenceEnumerationMeanStd.mean evidenceEnumerationMeanStd.std

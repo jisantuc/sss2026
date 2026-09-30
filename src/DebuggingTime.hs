@@ -246,6 +246,15 @@ saveMaybeNotSoftwareBugCdf nSamples = do
   let spec = plotCdf "Some Chance of Not a Software Bug" [cdfLayer defaultColor ref, cdfLayer newGreen dist]
   saveSVG "plots/debug-time-maybe-not-software-bug.svg" spec
 
+saveMaybeNotSoftwareBugDumber :: Int -> IO ()
+saveMaybeNotSoftwareBugDumber nSamples = do
+  ref <- refDist nSamples
+  dist <-
+    sampler . replicateM nSamples $
+      timeToAnswerGround 0 0 30 (15 * 1.25, 6) (15 * 1.25, 6) (0.2 * 0.75) 0.75 (60, 15) 0.9 0.9 2400
+  let spec = plotCdf "Debug time with 25% worse understanding" [cdfLayer defaultColor ref, cdfLayer newGreen dist]
+  saveSVG "plots/debug-time-ref-vs-worst-case.svg" spec
+
 saveMaybeNotSoftwareBugTwoRefs :: Int -> IO ()
 saveMaybeNotSoftwareBugTwoRefs nSamples = do
   midRef <- sampler . replicateM nSamples $ timeToAnswerGround 0 0 30 (15, 6) (15, 6) 0.2 0.75 (60, 15) 0.9 1 2400
@@ -290,5 +299,6 @@ allPlots nSamples =
       saveSomeSpaceEvidenceSomePassFailuresCdf,
       saveMaybeNotSoftwareBugCdf,
       saveMaybeNotSoftwareBugTwoRefs,
-      saveMaybeNotSoftwareFewerSoftwareBugsTwoRefs
+      saveMaybeNotSoftwareFewerSoftwareBugsTwoRefs,
+      saveMaybeNotSoftwareBugDumber
     ]

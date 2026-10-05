@@ -36,6 +36,9 @@ update msg model =
         regenerate ix conf =
             generate (GeneratedValues ix)
                 (Random.list defaultSimState.nSamples (timeToAnswerGround conf 1 2400))
+
+        regenerateFrom ix d =
+            Dict.get ix d |> Maybe.map (regenerate ix) |> Maybe.withDefault Cmd.none
     in
     case msg of
         GeneratedValues id values ->
@@ -147,7 +150,7 @@ update msg model =
                     }
 
                 cmd =
-                    Dict.get ix newModel.configs |> Maybe.map (regenerate ix) |> Maybe.withDefault Cmd.none
+                    regenerateFrom ix newModel.configs
             in
             ( newModel, cmd )
 
@@ -161,7 +164,7 @@ update msg model =
                     }
 
                 cmd =
-                    Dict.get ix newModel.configs |> Maybe.map (regenerate ix) |> Maybe.withDefault Cmd.none
+                    regenerateFrom ix newModel.configs
             in
             ( newModel, cmd )
 
@@ -187,7 +190,7 @@ update msg model =
                         |> Maybe.withDefault model.configs
 
                 cmd =
-                    Dict.get nextId newConfigs |> Maybe.map (regenerate ix) |> Maybe.withDefault Cmd.none
+                    regenerateFrom nextId newConfigs
             in
             ( { model | configs = newConfigs }, cmd )
 

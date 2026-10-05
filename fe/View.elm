@@ -216,7 +216,7 @@ viewConfigs configs =
                             , Element.row [] [ Element.text "Idea accuracy: ", rateConfigView "idea-accuracy" ix config.configState config.ideaCorrectRate IdeaAccuracyChanged ]
                             , Element.row [] [ Element.text "Evidence enumeration: ", normalDistConfigView "enumeration" ix config.configState config.evidenceEnumerationMeanStd EvidenceEnumerationMeanChanged EvidenceEnumerationStdChanged ]
                             , Element.row [] [ Element.text "Evidence evaluation: ", normalDistConfigView "evaluation" ix config.configState config.evidenceEvaluationMeanStd EvidenceEvaluationMeanChanged EvidenceEvaluationStdChanged ]
-                            , Element.row [] [ Element.text "Evidence on ground %: ", floatConfigView "ground-chance" ix config.configState config.chanceEvidenceOnTheGround GroundChanceChanged ]
+                            , Element.row [] [ Element.text "Evidence on ground %: ", rateConfigView "ground-chance" ix config.configState config.chanceEvidenceOnTheGround GroundChanceChanged ]
                             , Element.row [] [ Element.text "Time til contact: ", normalDistConfigView "contact" ix config.configState config.timeTilContactMeanStd TimeTilContactMeanChanged TimeTilContactStdChanged ]
                             , Element.row [] [ Element.text "Contact success rate: ", rateConfigView "contact-success-rate" ix config.configState config.retrievalSuccessRate ContactSuccessRateChanged ]
                             ]

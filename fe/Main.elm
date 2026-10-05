@@ -91,54 +91,134 @@ update msg model =
             )
 
         EvidenceEnumerationMeanChanged ix new ->
-            ( { model
-                | configs =
-                    model.configs
-                        |> Dict.update ix
-                            (Maybe.map
-                                (\conf ->
-                                    { conf
-                                        | evidenceEnumerationMeanStd =
-                                            { mean = new
-                                            , std = conf.evidenceEnumerationMeanStd.std
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix
+                                    (Maybe.map
+                                        (\conf ->
+                                            { conf
+                                                | evidenceEnumerationMeanStd =
+                                                    { mean = new
+                                                    , std = conf.evidenceEnumerationMeanStd.std
+                                                    }
                                             }
-                                    }
-                                )
-                            )
-              }
-            , Cmd.none
+                                        )
+                                    )
+                    }
+            in
+            ( newModel
+            , regenerateFrom ix newModel.configs
             )
 
         EvidenceEnumerationStdChanged ix new ->
-            ( { model
-                | configs =
-                    model.configs
-                        |> Dict.update ix
-                            (Maybe.map
-                                (\conf ->
-                                    { conf
-                                        | evidenceEnumerationMeanStd =
-                                            { mean = conf.evidenceEnumerationMeanStd.mean
-                                            , std = new
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix
+                                    (Maybe.map
+                                        (\conf ->
+                                            { conf
+                                                | evidenceEnumerationMeanStd =
+                                                    { mean = conf.evidenceEnumerationMeanStd.mean
+                                                    , std = new
+                                                    }
                                             }
-                                    }
-                                )
-                            )
-              }
-            , Cmd.none
+                                        )
+                                    )
+                    }
+            in
+            ( newModel
+            , regenerateFrom ix newModel.configs
             )
 
         EvidenceEvaluationMeanChanged ix new ->
-            ( model, Cmd.none )
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix
+                                    (Maybe.map
+                                        (\conf ->
+                                            { conf
+                                                | evidenceEvaluationMeanStd =
+                                                    { mean = new
+                                                    , std = conf.evidenceEvaluationMeanStd.std
+                                                    }
+                                            }
+                                        )
+                                    )
+                    }
+            in
+            ( newModel, regenerateFrom ix newModel.configs )
 
         EvidenceEvaluationStdChanged ix new ->
-            ( model, Cmd.none )
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix
+                                    (Maybe.map
+                                        (\conf ->
+                                            { conf
+                                                | evidenceEvaluationMeanStd =
+                                                    { mean = conf.evidenceEvaluationMeanStd.mean
+                                                    , std = new
+                                                    }
+                                            }
+                                        )
+                                    )
+                    }
+            in
+            ( newModel, regenerateFrom ix newModel.configs )
 
         TimeTilContactMeanChanged ix new ->
-            ( model, Cmd.none )
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix
+                                    (Maybe.map
+                                        (\conf ->
+                                            { conf
+                                                | timeTilContactMeanStd =
+                                                    { mean = new
+                                                    , std = conf.timeTilContactMeanStd.std
+                                                    }
+                                            }
+                                        )
+                                    )
+                    }
+            in
+            ( newModel, regenerateFrom ix newModel.configs )
 
         TimeTilContactStdChanged ix new ->
-            ( model, Cmd.none )
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix
+                                    (Maybe.map
+                                        (\conf ->
+                                            { conf
+                                                | timeTilContactMeanStd =
+                                                    { mean = conf.timeTilContactMeanStd.mean
+                                                    , std = new
+                                                    }
+                                            }
+                                        )
+                                    )
+                    }
+            in
+            ( newModel, regenerateFrom ix newModel.configs )
 
         IdeaTimeChanged ix new ->
             let
@@ -148,11 +228,8 @@ update msg model =
                             model.configs
                                 |> Dict.update ix (Maybe.map (\conf -> { conf | ideaTime = new }))
                     }
-
-                cmd =
-                    regenerateFrom ix newModel.configs
             in
-            ( newModel, cmd )
+            ( newModel, regenerateFrom ix newModel.configs )
 
         IdeaAccuracyChanged ix new ->
             let
@@ -162,17 +239,30 @@ update msg model =
                             model.configs
                                 |> Dict.update ix (Maybe.map (\conf -> { conf | ideaCorrectRate = new }))
                     }
-
-                cmd =
-                    regenerateFrom ix newModel.configs
             in
-            ( newModel, cmd )
+            ( newModel, regenerateFrom ix newModel.configs )
 
         GroundChanceChanged ix new ->
-            ( model, Cmd.none )
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix (Maybe.map (\conf -> { conf | chanceEvidenceOnTheGround = new }))
+                    }
+            in
+            ( newModel, regenerateFrom ix newModel.configs )
 
         ContactSuccessRateChanged ix new ->
-            ( model, Cmd.none )
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix (Maybe.map (\conf -> { conf | retrievalSuccessRate = new }))
+                    }
+            in
+            ( newModel, regenerateFrom ix newModel.configs )
 
         CloneConfig ix ->
             let

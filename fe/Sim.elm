@@ -2,7 +2,7 @@ module Sim exposing (defaultSimInput, timeToAnswerGround)
 
 import Model exposing (ConfigState(..), DebugSimInput, NormalDist)
 import Random
-import StatRandom exposing (bernoulliBool, normal, exponential)
+import StatRandom exposing (bernoulliBool, exponential, normal)
 
 
 defaultSimInput : DebugSimInput
@@ -15,14 +15,14 @@ defaultSimInput =
     , ideaCorrectRate = 20
     , chanceEvidenceOnTheGround = 1
     , timeTilContactMeanStd = { mean = 0, std = 0 }
-    , retrievalSuccessRate = 1
+    , retrievalSuccessRate = 100
     , configState = Frozen
     }
 
 
 timeToRetrieveEvidenceFromSatellite : NormalDist -> Float -> Random.Generator Float
 timeToRetrieveEvidenceFromSatellite timeTilContact retrievalSuccessRate =
-    Random.pair (normal timeTilContact.mean timeTilContact.std) (bernoulliBool retrievalSuccessRate)
+    Random.pair (normal timeTilContact.mean timeTilContact.std) (bernoulliBool (retrievalSuccessRate / 100))
         |> Random.andThen
             (\( delay, success ) ->
                 if success then
@@ -35,7 +35,7 @@ timeToRetrieveEvidenceFromSatellite timeTilContact retrievalSuccessRate =
 
 timeToGatherEvidence : Float -> NormalDist -> Float -> Random.Generator Float
 timeToGatherEvidence groundChance timeTilContact retrievalSuccessRate =
-    bernoulliBool groundChance
+    bernoulliBool (Debug.log "ground chance" (groundChance / 100))
         |> Random.andThen
             (\onTheGround ->
                 if onTheGround then
@@ -74,7 +74,9 @@ groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, 
                     max startAfter ideaArrival
 
                 evidenceReadyAt =
-                    startAt + ceiling evidenceEnumerationDelay + ceiling evidenceGatheringDelay
+                    startAt
+                        + ceiling evidenceEnumerationDelay
+                        + ceiling evidenceGatheringDelay
 
                 resultAt =
                     evidenceReadyAt + ceiling evaluationDelay

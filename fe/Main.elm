@@ -10,7 +10,7 @@ import View exposing (view)
 
 defaultSimState : SimState
 defaultSimState =
-    { nSamples = 1000, configs = Dict.singleton 0 defaultSimInput, simData = Dict.empty }
+    { nSamples = 3000, configs = Dict.singleton 0 defaultSimInput, simData = Dict.empty }
 
 
 main : Program () SimState Msg
@@ -263,6 +263,72 @@ update msg model =
                     }
             in
             ( newModel, regenerateFrom ix newModel.configs )
+
+        NewRed ix r ->
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix
+                                    (Maybe.map
+                                        (\conf ->
+                                            { conf
+                                                | color =
+                                                    { red = r
+                                                    , green = conf.color.green
+                                                    , blue = conf.color.blue
+                                                    }
+                                            }
+                                        )
+                                    )
+                    }
+            in
+            ( newModel, Cmd.none )
+
+        NewGreen ix g ->
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix
+                                    (Maybe.map
+                                        (\conf ->
+                                            { conf
+                                                | color =
+                                                    { red = conf.color.red
+                                                    , green = g
+                                                    , blue = conf.color.blue
+                                                    }
+                                            }
+                                        )
+                                    )
+                    }
+            in
+            ( newModel, Cmd.none )
+
+        NewBlue ix b ->
+            let
+                newModel =
+                    { model
+                        | configs =
+                            model.configs
+                                |> Dict.update ix
+                                    (Maybe.map
+                                        (\conf ->
+                                            { conf
+                                                | color =
+                                                    { red = conf.color.red
+                                                    , green = conf.color.green
+                                                    , blue = b
+                                                    }
+                                            }
+                                        )
+                                    )
+                    }
+            in
+            ( newModel, Cmd.none )
 
         CloneConfig ix ->
             let

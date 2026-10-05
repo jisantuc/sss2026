@@ -1,6 +1,7 @@
 module Model exposing (ConfigState(..), DebugSimInput, Msg(..), NormalDist, SimState)
 
 import Dict exposing (Dict)
+import Element
 
 
 type Msg
@@ -18,6 +19,9 @@ type Msg
     | IdeaAccuracyChanged Int Float
     | GroundChanceChanged Int Float
     | ContactSuccessRateChanged Int Float
+    | NewRed Int Int
+    | NewGreen Int Int
+    | NewBlue Int Int
     | NoOp
 
 
@@ -43,6 +47,7 @@ type alias DebugSimInput =
     , timeTilContactMeanStd : NormalDist
     , retrievalSuccessRate : Float
     , configState : ConfigState
+    , color : { red : Int, green : Int, blue : Int }
     }
 
 

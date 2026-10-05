@@ -194,9 +194,57 @@ normalDistConfigView lab ix cs { mean, std } meanChanged stdChanged =
         ]
 
 
+colorChannelChooser : String -> (Int -> msg) -> Int -> Element.Element msg
+colorChannelChooser lab msgConstructor v =
+    Element.row [ Element.spaceEvenly ]
+        [ Element.text lab
+        , Input.slider
+            [ Element.fill |> Element.minimum 90 |> Element.width
+            , Element.behindContent
+                (Element.el
+                    [ Element.width Element.fill
+                    , Element.height (Element.px 2)
+                    , Element.centerY
+                    , Background.color (Element.rgb 0.2 0.2 0.2)
+                    , Border.rounded 2
+                    ]
+                    Element.none
+                )
+            ]
+            { onChange = round >> msgConstructor
+            , label = String.concat [ lab, "-", "floatval" ] |> Input.labelHidden
+            , min = 0
+            , max = 255
+            , step = Just 1
+            , value = toFloat v
+            , thumb = Input.defaultThumb
+            }
+        , String.fromInt v |> Element.text
+        ]
+
+
+colorPicker : Int -> DebugSimInput -> Element.Element Msg
+colorPicker ix conf =
+    case conf.configState of
+        Editing ->
+            Element.column [ Element.padding 6, Element.width Element.fill ]
+                [ colorChannelChooser "R" (NewRed ix) conf.color.red |> List.singleton |> Element.row []
+                , colorChannelChooser "G" (NewGreen ix) conf.color.green |> List.singleton |> Element.row []
+                , colorChannelChooser "B" (NewBlue ix) conf.color.blue |> List.singleton |> Element.row []
+                ]
+
+        Frozen ->
+            Element.el
+                [ Element.width Element.fill
+                , Element.paddingXY 6 0
+                , Background.color (conf.color |> (\{ red, green, blue } -> Element.rgb255 red green blue))
+                ]
+                (Element.text "  ")
+
+
 viewConfigs : List ( Int, DebugSimInput ) -> Element.Element Msg
 viewConfigs configs =
-    Element.table [ Element.padding 12, Element.spacing 12, Element.width (Element.fillPortion 20 |> Element.minimum 500), Element.alignLeft ]
+    Element.table [ Element.padding 12, Element.spacing 12, Element.height (Element.fill |> Element.maximum 600), Element.width (Element.fillPortion 30), Element.alignLeft, Element.scrollbarY ]
         { data = configs
         , columns =
             [ { header = Element.text ""
@@ -219,10 +267,15 @@ viewConfigs configs =
                             , Element.row [] [ Element.text "Evidence on ground %: ", rateConfigView "ground-chance" ix config.configState config.chanceEvidenceOnTheGround GroundChanceChanged ]
                             , Element.row [] [ Element.text "Time til contact: ", normalDistConfigView "contact" ix config.configState config.timeTilContactMeanStd TimeTilContactMeanChanged TimeTilContactStdChanged ]
                             , Element.row [] [ Element.text "Contact success rate: ", rateConfigView "contact-success-rate" ix config.configState config.retrievalSuccessRate ContactSuccessRateChanged ]
+                            , Element.row [] [ Element.text "Color: ", colorPicker ix config ]
                             ]
               }
             ]
         }
+
+
+
+-- TODO: how do I add hover so I can see x/y in the chart?
 
 
 view : SimState -> Html.Html Msg
@@ -231,12 +284,23 @@ view { nSamples, simData, configs } =
         emptyChart =
             { boundingBox = { xMin = 0, xMax = 2500, yMin = 0, yMax = 1.05 }, confidence = Nothing, data = [] }
     in
-    Element.row []
+    Element.row [ Element.width Element.fill ]
         [ [ div [ style "width" "100%" ]
                 [ simData
                     |> Dict.map
-                        (\_ ser ->
-                            cdfGraph ser ( 0.2, 0.2, 0.6 )
+                        (\ix ser ->
+                            let
+                                color =
+                                    configs
+                                        |> Dict.get ix
+                                        |> Maybe.map (\conf -> conf.color)
+                                        |> Maybe.map
+                                            (\{ red, green, blue } ->
+                                                ( toFloat red / 255, toFloat green / 255, toFloat blue / 255 )
+                                            )
+                                        |> Maybe.withDefault ( 0.2, 0.2, 0.6 )
+                            in
+                            cdfGraph ser color
                         )
                     |> Dict.values
                     |> List.foldl StatChart.addGraph emptyChart
@@ -252,6 +316,6 @@ view { nSamples, simData, configs } =
                 [ Element.width (Element.fillPortion 60 |> Element.minimum 800)
                 , Element.height (Element.fill |> Element.minimum 800)
                 ]
-        , viewConfigs (Dict.toList configs)
+        , Element.el [ Element.centerY ] (viewConfigs (Dict.toList configs))
         ]
         |> Element.layout []

@@ -17,6 +17,7 @@ defaultSimInput =
     , timeTilContactMeanStd = { mean = 0, std = 0 }
     , retrievalSuccessRate = 100
     , configState = Frozen
+    , color = { red = 20, green = 200, blue = 20 }
     }
 
 
@@ -35,7 +36,7 @@ timeToRetrieveEvidenceFromSatellite timeTilContact retrievalSuccessRate =
 
 timeToGatherEvidence : Float -> NormalDist -> Float -> Random.Generator Float
 timeToGatherEvidence groundChance timeTilContact retrievalSuccessRate =
-    bernoulliBool (Debug.log "ground chance" (groundChance / 100))
+    bernoulliBool (groundChance / 100)
         |> Random.andThen
             (\onTheGround ->
                 if onTheGround then
@@ -47,7 +48,7 @@ timeToGatherEvidence groundChance timeTilContact retrievalSuccessRate =
 
 
 groundDebugTime : DebugSimInput -> Int -> Random.Generator Int
-groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, evidenceEvaluationMeanStd, ideaCorrectRate, chanceEvidenceOnTheGround, timeTilContactMeanStd, retrievalSuccessRate, configState } timeout =
+groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, evidenceEvaluationMeanStd, ideaCorrectRate, chanceEvidenceOnTheGround, timeTilContactMeanStd, retrievalSuccessRate, configState, color } timeout =
     let
         ideaDelayGen =
             exponential (1 / ideaTime) |> Random.map ceiling
@@ -108,6 +109,7 @@ groundDebugTime { lastIdeaAt, startAfter, ideaTime, evidenceEnumerationMeanStd, 
                         , timeTilContactMeanStd = timeTilContactMeanStd
                         , retrievalSuccessRate = retrievalSuccessRate
                         , configState = configState
+                        , color = color
                         }
                         timeout
             )

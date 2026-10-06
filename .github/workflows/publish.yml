@@ -1,4 +1,4 @@
-name: Deploy Hakyll to Pages
+name: Publish web app
 
 on:
   push:

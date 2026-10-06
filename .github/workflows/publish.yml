@@ -48,7 +48,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: ./index.html
+          path: ./_dist
 
   deploy:
     environment:

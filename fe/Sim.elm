@@ -13,7 +13,7 @@ defaultSimInput =
     , evidenceEnumerationMeanStd = { mean = 15, std = 6 }
     , evidenceEvaluationMeanStd = { mean = 15, std = 6 }
     , ideaCorrectRate = 20
-    , chanceEvidenceOnTheGround = 1
+    , chanceEvidenceOnTheGround = 100
     , timeTilContactMeanStd = { mean = 0, std = 0 }
     , retrievalSuccessRate = 100
     , configState = Frozen
